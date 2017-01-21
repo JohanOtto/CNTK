@@ -51,6 +51,9 @@ class Plus3Func(UserFunction):
 
         variables[var_key] = rv
 
+    def __del__(self):
+        print('Plus3Func.__del__')
+
 def test_ext_eval_1():
     dim = 4
     p = parameter(shape=(dim,), init=10, name='p')
@@ -96,7 +99,7 @@ def test_ext_eval_4_a_inside_graph():
     # No batch dimension since we have no input
     assert np.allclose(result, ((p_init*np.ones_like(result))+3)*p_init)
 
-def _test_ext_eval_4_b_inside_graph():
+def test_ext_eval_4_b_inside_graph():
     dim = 4
     p_init = 10
     p = parameter(shape=(dim,), init=p_init, name='p')
@@ -161,11 +164,10 @@ def test_ext_backpropstate(payload):
                 outputs[k] = arguments[0]
                 break
 
-            # return self.payload, outputs
-            return [5,], outputs
+            return self.payload, outputs
 
         def backward(self, state, root_gradients, variables):
-            # assert state == self.payload
+            assert state == self.payload
             for rk, rv in root_gradients.items():
                 break
             for var_key in variables:
@@ -180,16 +182,12 @@ def test_ext_backpropstate(payload):
     m = TestBackPropState(in1, payload)
     z = m+p
 
-    momentum_time_constant = momentum_as_time_constant_schedule(1100)
     lr_per_sample = learning_rate_schedule(0.007, UnitType.sample)
     trainer = Trainer(z, z+0, z+0, \
-            [momentum_sgd(z.parameters, lr_per_sample, momentum_time_constant,
-                True)])
+            [sgd(z.parameters, lr_per_sample)])
 
-    print(payload)
 
     for i in range(100):
-        print(i)
         input_data = np.random.rand(dim)
         trainer.train_minibatch({in1:[input_data]})
 
