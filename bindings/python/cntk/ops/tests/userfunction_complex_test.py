@@ -13,6 +13,7 @@ import numpy as np
 from cntk import *
 from cntk.learner import *
 from cntk.ops import *
+from .ops_test_utils import cntk_device
 from cntk.ops.functions import UserFunction
 
 from cntk.utils import get_train_eval_criterion, get_train_loss
@@ -69,7 +70,12 @@ def print_training_progress(trainer, mb, frequency):
 
     return mb, training_loss, eval_error
 
-def train(nonlinearity, num_hidden_layers=2):
+def train(nonlinearity, num_hidden_layers, device_id):
+    from cntk.cntk_py import always_allow_setting_default_device
+    always_allow_setting_default_device()
+    set_default_device(cntk_device(device_id))
+    np.random.seed(0)
+
     learning_rate = 0.5
     lr_schedule = learning_rate_schedule(learning_rate, UnitType.minibatch)
 
@@ -101,10 +107,12 @@ def train(nonlinearity, num_hidden_layers=2):
     errors = []
 
     for i in range(0, int(num_minibatches_to_train)):
+        print(i)
         features, labels = generate_random_data_sample(minibatch_size, input_dim, num_output_classes)
 
         # Specify the input variables mapping in the model to actual minibatch data for training
-        trainer.train_minibatch({input : features, label : labels})
+        trainer.train_minibatch({input : features, label : labels},
+                device=cntk_device(device_id))
         batchsize, loss, error = print_training_progress(trainer, i,
                                                          training_progress_output_freq)
         if not (loss == "NA" or error =="NA"):
@@ -140,24 +148,24 @@ class MySigmoid(UserFunction):
     def infer_outputs(self):
         return [output_variable(self.arg.shape, self.arg.dtype, self.arg.dynamic_axes)]
 
-def test_ext_user_sigmoid():
+def test_ext_user_sigmoid(device_id):
     np.random.seed(0)
-    act_losses, act_errors = train(MySigmoid)
+    exp_losses, exp_errors = train(sigmoid, 4, device_id)
     np.random.seed(0)
-    exp_losses, exp_errors = train(sigmoid)
+    act_losses, act_errors = train(MySigmoid, 4, device_id)
     assert np.allclose(exp_losses, act_losses)
     assert np.allclose(exp_errors, act_errors)
 
-def measure_runtime():
+def measure_runtime(device_id):
     import timeit
     np.random.seed(0)
     for num_hidden_layers in [1,2,4,8,16]:
-        t = timeit.Timer('train(MySigmoid, %i)'%num_hidden_layers, 
-                setup="from __main__ import train, MySigmoid")
+        t = timeit.Timer('train(MySigmoid, %i, %s)'%(num_hidden_layers,
+            device_id), setup="from __main__ import train, MySigmoid")
         timings_my_sigmoid = t.repeat(number=10)
         np.random.seed(0)
-        t = timeit.Timer('train(sigmoid, %i)'%num_hidden_layers, 
-            setup="from __main__ import train, sigmoid")
+        t = timeit.Timer('train(sigmoid, %i, %s)'%(num_hidden_layers,
+            device_id), setup="from __main__ import train, sigmoid")
         timings_sigmoid = t.repeat(number=10)
 
         print("%i\t%.2f\t%.2f"%(num_hidden_layers, min(timings_my_sigmoid), min(timings_sigmoid)))
