@@ -116,6 +116,7 @@ def train(nonlinearity, num_hidden_layers=2):
 
 class MySigmoid(UserFunction):
     def __init__(self, arg, name='MySigmoid'):
+        self.arg = arg
         super(MySigmoid, self).__init__([arg], name=name)
 
     def forward(self, arguments, outputs, device=None, outputs_to_retain=None):
@@ -137,12 +138,10 @@ class MySigmoid(UserFunction):
         variables[var_key] = rv * sigmoid_x * (1 - sigmoid_x)
 
     def infer_outputs(self):
-        import ipdb;ipdb.set_trace()
-        return [output_variable(arg.shape, arg.dtype, arg.dynamic_axes)]
+        return [output_variable(self.arg.shape, self.arg.dtype, self.arg.dynamic_axes)]
 
 def test_ext_user_sigmoid():
     np.random.seed(0)
-    import ipdb;ipdb.set_trace()
     act_losses, act_errors = train(MySigmoid)
     np.random.seed(0)
     exp_losses, exp_errors = train(sigmoid)

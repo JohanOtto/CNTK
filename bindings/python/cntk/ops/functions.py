@@ -4,6 +4,7 @@ from cntk.utils import typemap, sanitize_var_map, sanitize_batch, \
         sanitize_dtype_cntk, value_to_seq, sanitize_var_substitution_map, \
         sanitize_substitution_var
 from cntk.utils.swig_helper import map_if_possible
+from cntk.ops.variables import Variable
 from enum import Enum, unique
 import numpy as np
 
@@ -94,23 +95,24 @@ class Function(cntk_py.Function):
         return self(other)
 
     def __getattr__(self, name):
-        # If something is not found in Function, look it up in its output, if
-        # it has only one.
-        num_outputs = len(self.__getattribute__('outputs'))
-        if num_outputs != 1:
-            raise AttributeError("Function does not have '%s' and it cannot "
-                    "be looked up in its outputs because it does not have "
-                    "exactly one"%name)
-
-        if name.startswith('_') or \
+        # If something is not found in Function, look it up in its output
+        # variable, if it has only one.
+        if not hasattr(Variable, name) or name.startswith('_') or \
                 name in ['outputs', 'output', 'this']:
             # These should not be looked up in self's output.
             # 'outputs' and 'output' are required to fetch the attribute for 
             # in the Variable.
             # 'this' is required for Swig and needs to be thrown if the
             # object is created the first time.
-            raise AttributeError("'%s' object has no attribute '%s'" %
-                    (type(self), name))
+            raise AttributeError("neither Function nor its output variable"
+                    " has '%s'"%name)
+
+        num_outputs = len(self.__getattribute__('outputs'))
+        if num_outputs != 1:
+            raise AttributeError("Function does not have '%s' and it cannot "
+                    "be looked up in its outputs because it does not have "
+                    "exactly one"%name)
+
         try:
             return getattr(self.__getattribute__('output'), name)
         except AttributeError:
