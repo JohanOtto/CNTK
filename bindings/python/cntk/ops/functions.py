@@ -96,9 +96,14 @@ class Function(cntk_py.Function):
     def __getattr__(self, name):
         # If something is not found in Function, look it up in its output, if
         # it has only one.
+        num_outputs = len(self.__getattribute__('outputs'))
+        if num_outputs != 1:
+            raise AttributeError("Function does not have '%s' and it cannot "
+                    "be looked up in its outputs because it does not have "
+                    "exactly one"%name)
+
         if name.startswith('_') or \
-                name in ['outputs', 'output', 'this'] or \
-                len(self.__getattribute__('outputs'))!=1:
+                name in ['outputs', 'output', 'this']:
             # These should not be looked up in self's output.
             # 'outputs' and 'output' are required to fetch the attribute for 
             # in the Variable.
@@ -737,6 +742,9 @@ class UserFunction(Function):
                 raise ValueError('gradients were not provided for all variables')
 
             variables[k] = sanitize_batch(k, v, None, state.device())
+
+    def infer_outputs(self):
+        raise NotImplentedError
 
     def op_name(self):
         return 'UserFunction'
